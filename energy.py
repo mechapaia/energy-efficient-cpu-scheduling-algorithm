@@ -51,7 +51,7 @@ def energy_scheduler(processes):
 
             p["burst"] -= exec_time
             energy = compute_energy(level, actual_time)
-            total_energy += energy
+            total_energy += round(energy, 4)
 
             gantt.append((p["pid"], start, time, level))
 
