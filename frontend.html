@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Energy Efficient CPU Scheduler</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    padding: 20px;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.card {
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+input {
+    padding: 10px;
+    margin: 5px;
+    border-radius: 8px;
+    border: none;
+    width: 100px;
+}
+
+button {
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    background: #3b82f6;
+    color: white;
+    cursor: pointer;
+    margin: 5px;
+    transition: 0.2s;
+}
+
+button:hover {
+    background: #2563eb;
+}
+
+table {
+    width: 100%;
+    margin-top: 15px;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 10px;
+    text-align: center;
+    border-bottom: 1px solid #334155;
+}
+
+th {
+    background: #0f172a;
+}
+
+.process-badge {
+    display: inline-block;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: #22c55e;
+    margin: 3px;
+}
+
+#ganttContainer {
+    display: flex;
+    margin-top: 20px;
+    overflow-x: auto;
+}
+
+.gantt-block {
+    padding: 15px;
+    margin-right: 2px;
+    background: #6366f1;
+    border-radius: 6px;
+    min-width: 50px;
+    text-align: center;
+}
+
+.section-title {
+    margin-top: 10px;
+    font-size: 18px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>⚡ Energy Efficient CPU Scheduler</h1>
+
+<div class="card">
+    <h3>Add Process</h3>
+    <input id="arrival" placeholder="Arrival Time">
+    <input id="burst" placeholder="Burst Time">
+
+    <button onclick="addProcess()">Add</button>
+    <button onclick="clearAll()" style="background:#ef4444;">Clear</button>
+
+    <div id="processList"></div>
+
+    <table id="table">
+        <tr>
+            <th>PID</th>
+            <th>AT</th>
+            <th>BT</th>
+        </tr>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Run Scheduler</h3>
+    <button onclick="run()">Run All Algorithms</button>
+
+    <div class="section-title">📊 Comparison</div>
+    <table id="comparisonTable"></table>
+
+    <div class="section-title">⏱ Gantt Chart</div>
+    <div id="ganttContainer"></div>
+</div>
+
+</div>
+
+<script>
+
+let processes = [];
+let pid = 1;
+
+function addProcess() {
+    const at = parseInt(document.getElementById("arrival").value);
+    const bt = parseInt(document.getElementById("burst").value);
+
+    if (isNaN(at) || isNaN(bt)) {
+        alert("Enter valid numbers");
+        return;
+    }
+
+    processes.push({ pid: pid++, at, bt });
+
+    renderTable();
+    renderBadges();
+
+    arrival.value = "";
+    burst.value = "";
+}
+
+function renderTable() {
+    const table = document.getElementById("table");
+
+    table.innerHTML = `
+        <tr>
+            <th>PID</th><th>AT</th><th>BT</th>
+        </tr>
+    `;
+
+    processes.forEach(p => {
+        table.innerHTML += `
+            <tr>
+                <td>P${p.pid}</td>
+                <td>${p.at}</td>
+                <td>${p.bt}</td>
+            </tr>
+        `;
+    });
+}
+
+function renderBadges() {
+    const list = document.getElementById("processList");
+    list.innerHTML = "";
+
+    processes.forEach(p => {
+        list.innerHTML += `
+            <span class="process-badge">
+                P${p.pid} (AT:${p.at}, BT:${p.bt})
+            </span>
+        `;
+    });
+}
+
+function clearAll() {
+    processes = [];
+    pid = 1;
+    renderTable();
+    renderBadges();
+    document.getElementById("comparisonTable").innerHTML = "";
+    document.getElementById("ganttContainer").innerHTML = "";
+}
+
+async function run() {
+    if (processes.length === 0) {
+        alert("Add processes first!");
+        return;
+    }
+
+    const res = await fetch("/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(processes)
+    });
+
+    const data = await res.json();
+
+    renderComparison(data);
+    renderGantt(data.gantt);
+}
+
+function renderComparison(data) {
+    const table = document.getElementById("comparisonTable");
+
+    table.innerHTML = `
+        <tr>
+            <th>Algorithm</th>
+            <th>Avg Waiting</th>
+            <th>Avg Turnaround</th>
+            <th>Energy</th>
+        </tr>
+    `;
+
+    for (let algo in data.results) {
+        const r = data.results[algo];
+
+        table.innerHTML += `
+            <tr>
+                <td>${algo}</td>
+                <td>${r.avg_waiting.toFixed(2)}</td>
+                <td>${r.avg_turnaround.toFixed(2)}</td>
+                <td>${r.energy.toFixed(2)}</td>
+            </tr>
+        `;
+    }
+}
+
+function renderGantt(gantt) {
+    const container = document.getElementById("ganttContainer");
+    container.innerHTML = "";
+
+    gantt.forEach(block => {
+        const div = document.createElement("div");
+        div.className = "gantt-block";
+        div.innerHTML = `P${block.pid}<br>${block.time}`;
+        container.appendChild(div);
+    });
+}
+
+</script>
+
+</body>
+</html>
