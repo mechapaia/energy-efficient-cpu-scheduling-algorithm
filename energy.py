@@ -61,5 +61,5 @@ def energy_scheduler(processes):
                 p["completion"] = time
         else:
             time += 1
-            
+
     return gantt, total_energy
