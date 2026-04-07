@@ -1,67 +1,78 @@
-from energy import energy_scheduler
-from fcfs import fcfs
-from srtf import srtf
-from rr import rr
+import heapq
 import copy
 
 
-def calculate_metrics(processes):
-    n = len(processes)
-    tat = sum(p["completion"] - p["arrival"] for p in processes) / n
-    wt = sum((p["completion"] - p["arrival"] - p["original"]) for p in processes) / n
-    return tat, wt
+def compute_energy(level, time):
+    levels = {
+        "LOW": (0.8, 1.0),
+        "MEDIUM": (1.0, 1.5),
+        "HIGH": (1.2, 2.0)
+    }
+    V, f = levels[level]
+    return round((V**2) * f * time, 4)   # cleaner output
 
 
-def print_results(name, gantt, energy, tat, wt):
-    print(f"\n{name} Results:")
-    print("-" * 30)
-    print(f"Energy: {energy:.2f}")
-    print(f"Avg TAT: {tat:.2f}")
-    print(f"Avg WT: {wt:.2f}")
+def energy_scheduler(processes):
+    # ✅ Prevent modifying original data
+    processes = copy.deepcopy(processes)
 
+    time = 0
+    total_energy = 0
+    ready = []
+    gantt = []
+    i = 0
 
-def main():
-    processes = []
+    # sort by arrival time
+    processes.sort(key=lambda x: x["arrival"])
 
-    n = int(input("Enter number of processes: "))
+    while i < len(processes) or ready:
 
-    for i in range(n):
-        arrival = int(input(f"Arrival time of P{i+1}: "))
-        burst = int(input(f"Burst time of P{i+1}: "))
+        # add arrived processes
+        while i < len(processes) and processes[i]["arrival"] <= time:
+            heapq.heappush(ready, (processes[i]["burst"], processes[i]["pid"], processes[i]))
+            i += 1
 
-        processes.append({
-            "pid": i + 1,
-            "arrival": arrival,
-            "burst": burst,
-            "original": burst
-        })
+        if ready:
+            _, _, p = heapq.heappop(ready)
 
-    # FCFS
-    p1 = copy.deepcopy(processes)
-    g1, e1 = fcfs(p1)
-    tat1, wt1 = calculate_metrics(p1)
+            # load-based DVFS
+            load = len(ready)
 
-    # SRTF
-    p2 = copy.deepcopy(processes)
-    g2, e2 = srtf(p2)
-    tat2, wt2 = calculate_metrics(p2)
+            if load <= 1:
+                level = "LOW"
+                speed = 0.8
+            elif load <= 3:
+                level = "MEDIUM"
+                speed = 1.0
+            else:
+                level = "HIGH"
+                speed = 1.2
 
-    # RR
-    p3 = copy.deepcopy(processes)
-    g3, e3 = rr(p3)
-    tat3, wt3 = calculate_metrics(p3)
+            exec_time = 1
+            actual_time = exec_time / speed
 
-    # Energy-Aware
-    p4 = copy.deepcopy(processes)
-    g4, e4 = energy_scheduler(p4)
-    tat4, wt4 = calculate_metrics(p4)
+            start = time
+            time += actual_time
 
-    # PRINT
-    print_results("FCFS", g1, e1, tat1, wt1)
-    print_results("SRTF", g2, e2, tat2, wt2)
-    print_results("Round Robin", g3, e3, tat3, wt3)
-    print_results("Energy-Aware", g4, e4, tat4, wt4)
+            p["burst"] -= exec_time
+            energy = compute_energy(level, actual_time)
+            total_energy += energy
 
+            gantt.append({
+                "pid": p["pid"],
+                "start": round(start, 3),
+                "end": round(time, 3),
+                "level": level
+            })
 
-if __name__ == "__main__":
-    main()
+            if p["burst"] > 0:
+                heapq.heappush(ready, (p["burst"], p["pid"], p))
+            else:
+                p["completion"] = round(time, 3)
+
+        else:
+            # ✅ jump to next arrival (important fix)
+            if i < len(processes):
+                time = processes[i]["arrival"]
+
+    return gantt, round(total_energy, 4)
