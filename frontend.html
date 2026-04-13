@@ -1,59 +1,53 @@
+
+
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Energy Efficient CPU Scheduler</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scheduler</title>
 
 <style>
 body {
     font-family: 'Segoe UI', sans-serif;
     background: linear-gradient(135deg, #0f172a, #1e293b);
-    color: white;
+    color: #e2e8f0;
     margin: 0;
-    padding: 0;
+    padding: 20px;
 }
 
 .container {
-    max-width: 1100px;
+    max-width: 1200px;
     margin: auto;
-    padding: 20px;
 }
 
 h1 {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 30px;
 }
 
 .card {
     background: #1e293b;
+    border-radius: 14px;
     padding: 20px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+    margin-bottom: 25px;
 }
 
 input {
-    padding: 10px;
-    margin: 5px;
-    border-radius: 8px;
+    width: 80px;
+    padding: 8px;
+    border-radius: 6px;
     border: none;
-    width: 100px;
+    margin-right: 8px;
+    background: #334155;
+    color: white;
 }
 
 button {
-    padding: 10px 15px;
-    border: none;
+    padding: 8px 16px;
     border-radius: 8px;
+    border: none;
     background: #3b82f6;
     color: white;
     cursor: pointer;
-    margin: 5px;
-    transition: 0.2s;
-}
-
-button:hover {
-    background: #2563eb;
 }
 
 table {
@@ -62,205 +56,164 @@ table {
     border-collapse: collapse;
 }
 
-th, td {
+td, th {
     padding: 10px;
     text-align: center;
-    border-bottom: 1px solid #334155;
 }
 
-th {
+.ganttWrapper {
+    margin-top: 25px;
+    padding: 20px;
     background: #0f172a;
+    border-radius: 12px;
 }
 
-.process-badge {
-    display: inline-block;
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: #22c55e;
-    margin: 3px;
-}
-
-#ganttContainer {
+.ganttChart {
     display: flex;
-    margin-top: 20px;
-    overflow-x: auto;
+    height: 55px;
+    background: #1e293b;
+    border-radius: 8px;
 }
 
-.gantt-block {
-    padding: 15px;
-    margin-right: 2px;
-    background: #6366f1;
-    border-radius: 6px;
-    min-width: 50px;
-    text-align: center;
+.ganttBlock {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    border-right: 1px solid #0f172a;
 }
 
-.section-title {
-    margin-top: 10px;
-    font-size: 18px;
+.timeline {
+    position: relative;
+    height: 22px;
+    margin-top: 6px;
+}
+
+.timeline span {
+    position: absolute;
+    font-size: 11px;
 }
 </style>
-</head>
 
+</head>
 <body>
 
 <div class="container">
 
-<h1>⚡ Energy Efficient CPU Scheduler</h1>
+<h1>Energy Efficient CPU Scheduler</h1>
 
 <div class="card">
-    <h3>Add Process</h3>
-    <input id="arrival" placeholder="Arrival Time">
-    <input id="burst" placeholder="Burst Time">
+<input id="arrival" placeholder="AT">
+<input id="burst" placeholder="BT">
+<button onclick="addProcess()">Add</button>
+<button onclick="clearAll()">Clear</button>
 
-    <button onclick="addProcess()">Add</button>
-    <button onclick="clearAll()" style="background:#ef4444;">Clear</button>
-
-    <div id="processList"></div>
-
-    <table id="table">
-        <tr>
-            <th>PID</th>
-            <th>AT</th>
-            <th>BT</th>
-        </tr>
-    </table>
+<table id="table">
+<tr><th>PID</th><th>AT</th><th>BT</th></tr>
+</table>
 </div>
 
 <div class="card">
-    <h3>Run Scheduler</h3>
-    <button onclick="run()">Run All Algorithms</button>
+<button onclick="run()">Run</button>
 
-    <div class="section-title">📊 Comparison</div>
-    <table id="comparisonTable"></table>
-
-    <div class="section-title">⏱ Gantt Chart</div>
-    <div id="ganttContainer"></div>
+<table id="comparisonTable"></table>
+<div id="ganttContainer"></div>
 </div>
 
 </div>
 
 <script>
-
 let processes = [];
-let pid = 1;
-
-function addProcess() {
-    const at = parseInt(document.getElementById("arrival").value);
-    const bt = parseInt(document.getElementById("burst").value);
-
-    if (isNaN(at) || isNaN(bt)) {
-        alert("Enter valid numbers");
-        return;
-    }
-
-    processes.push({ pid: pid++, at, bt });
-
-    renderTable();
-    renderBadges();
-
-    arrival.value = "";
-    burst.value = "";
-}
-
-function renderTable() {
-    const table = document.getElementById("table");
-
-    table.innerHTML = `
-        <tr>
-            <th>PID</th><th>AT</th><th>BT</th>
-        </tr>
-    `;
-
-    processes.forEach(p => {
-        table.innerHTML += `
-            <tr>
-                <td>P${p.pid}</td>
-                <td>${p.at}</td>
-                <td>${p.bt}</td>
-            </tr>
-        `;
-    });
-}
-
-function renderBadges() {
-    const list = document.getElementById("processList");
-    list.innerHTML = "";
-
-    processes.forEach(p => {
-        list.innerHTML += `
-            <span class="process-badge">
-                P${p.pid} (AT:${p.at}, BT:${p.bt})
-            </span>
-        `;
-    });
-}
 
 function clearAll() {
     processes = [];
-    pid = 1;
-    renderTable();
-    renderBadges();
+    document.getElementById("table").innerHTML = "<tr><th>PID</th><th>AT</th><th>BT</th></tr>";
     document.getElementById("comparisonTable").innerHTML = "";
     document.getElementById("ganttContainer").innerHTML = "";
 }
 
+function addProcess() {
+    let at = parseInt(document.getElementById("arrival").value);
+    let bt = parseInt(document.getElementById("burst").value);
+
+    if (isNaN(at) || isNaN(bt)) return alert("Enter valid numbers");
+
+    let pid = processes.length + 1;
+    processes.push({ pid, arrival: at, burst: bt });
+
+    document.getElementById("table").innerHTML += 
+    `<tr><td>${pid}</td><td>${at}</td><td>${bt}</td></tr>`;
+
+    document.getElementById("arrival").value = "";
+    document.getElementById("burst").value = "";
+}
+
 async function run() {
-    if (processes.length === 0) {
-        alert("Add processes first!");
-        return;
-    }
 
-    const res = await fetch("/run", {
+    let res = await fetch("/schedule", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(processes)
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ processes })
     });
 
-    const data = await res.json();
+    let data = await res.json();
 
-    renderComparison(data);
-    renderGantt(data.gantt);
-}
+    let comp = document.getElementById("comparisonTable");
+    let ganttContainer = document.getElementById("ganttContainer");
 
-function renderComparison(data) {
-    const table = document.getElementById("comparisonTable");
+    comp.innerHTML = "<tr><th>Algo</th><th>Energy</th><th>TAT</th><th>WT</th></tr>";
+    ganttContainer.innerHTML = "";
 
-    table.innerHTML = `
+    for (let algo in data) {
+        let r = data[algo];
+
+        comp.innerHTML += `
         <tr>
-            <th>Algorithm</th>
-            <th>Avg Waiting</th>
-            <th>Avg Turnaround</th>
-            <th>Energy</th>
-        </tr>
-    `;
+        <td>${algo}</td>
+        <td>${r.energy.toFixed(2)}</td>
+        <td>${r.tat.toFixed(2)}</td>
+        <td>${r.wt.toFixed(2)}</td>
+        </tr>`;
 
-    for (let algo in data.results) {
-        const r = data.results[algo];
-
-        table.innerHTML += `
-            <tr>
-                <td>${algo}</td>
-                <td>${r.avg_waiting.toFixed(2)}</td>
-                <td>${r.avg_turnaround.toFixed(2)}</td>
-                <td>${r.energy.toFixed(2)}</td>
-            </tr>
-        `;
+        drawGantt(algo, r.gantt);
     }
 }
 
-function renderGantt(gantt) {
-    const container = document.getElementById("ganttContainer");
-    container.innerHTML = "";
+function drawGantt(name, gantt) {
 
-    gantt.forEach(block => {
-        const div = document.createElement("div");
-        div.className = "gantt-block";
-        div.innerHTML = `P${block.pid}<br>${block.time}`;
-        container.appendChild(div);
+    let wrapper = document.createElement("div");
+    wrapper.className = "ganttWrapper";
+
+    let chart = document.createElement("div");
+    chart.className = "ganttChart";
+
+    let timeline = document.createElement("div");
+    timeline.className = "timeline";
+
+    let total = gantt[gantt.length - 1].end;
+    let unit = 800 / total;
+
+    gantt.forEach(task => {
+        let block = document.createElement("div");
+        block.className = "ganttBlock";
+        block.style.width = ((task.end - task.start) * unit) + "px";
+        block.style.background = "#3b82f6";
+        block.innerText = "P" + task.pid;
+        chart.appendChild(block);
     });
-}
 
+    for (let i = 0; i <= total; i++) {
+        let t = document.createElement("span");
+        t.innerText = i;
+        t.style.left = (i * unit) + "px";
+        timeline.appendChild(t);
+    }
+
+    wrapper.appendChild(chart);
+    wrapper.appendChild(timeline);
+
+    document.getElementById("ganttContainer").appendChild(wrapper);
+}
 </script>
 
 </body>
