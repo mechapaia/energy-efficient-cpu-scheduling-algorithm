@@ -9,11 +9,10 @@ def compute_energy(level, time):
         "HIGH": (1.2, 2.0)
     }
     V, f = levels[level]
-    return round((V**2) * f * time, 4)   # cleaner output
+    return round((V**2) * f * time, 4)
 
 
 def energy_scheduler(processes):
-    # ✅ Prevent modifying original data
     processes = copy.deepcopy(processes)
 
     time = 0
@@ -22,20 +21,22 @@ def energy_scheduler(processes):
     gantt = []
     i = 0
 
-    # sort by arrival time
     processes.sort(key=lambda x: x["arrival"])
 
-    while i < len(processes) or ready:
+    while True:
 
-        # add arrived processes
+        # Add processes that have arrived
         while i < len(processes) and processes[i]["arrival"] <= time:
             heapq.heappush(ready, (processes[i]["burst"], processes[i]["pid"], processes[i]))
             i += 1
 
+        # If nothing is left
+        if not ready and i >= len(processes):
+            break
+
         if ready:
             _, _, p = heapq.heappop(ready)
 
-            # load-based DVFS
             load = len(ready)
 
             if load <= 1:
@@ -58,12 +59,7 @@ def energy_scheduler(processes):
             energy = compute_energy(level, actual_time)
             total_energy += energy
 
-            gantt.append({
-                "pid": p["pid"],
-                "start": round(start, 3),
-                "end": round(time, 3),
-                "level": level
-            })
+            gantt.append((p["pid"], round(start, 3), round(time, 3), level))
 
             if p["burst"] > 0:
                 heapq.heappush(ready, (p["burst"], p["pid"], p))
@@ -71,8 +67,18 @@ def energy_scheduler(processes):
                 p["completion"] = round(time, 3)
 
         else:
-            # ✅ jump to next arrival (important fix)
+            # Jump to next process arrival
             if i < len(processes):
                 time = processes[i]["arrival"]
 
     return gantt, round(total_energy, 4)
+    processes = [
+    {"pid": "P1", "arrival": 0, "burst": 5},
+    {"pid": "P2", "arrival": 1, "burst": 3},
+    {"pid": "P3", "arrival": 2, "burst": 2}
+]
+
+gantt, energy = energy_scheduler(processes)
+
+print("Gantt:", gantt)
+print("Energy:", energy)
