@@ -1,78 +1,62 @@
-import heapq
+from flask import Flask, render_template, request, jsonify
 import copy
 
+from scheduler.fcfs import fcfs
+from scheduler.sjf import sjf
+from scheduler.rr import rr
+from scheduler.energy import energy_scheduler
+from scheduler.metrics import calculate_metrics
 
-def compute_energy(level, time):
-    levels = {
-        "LOW": (0.8, 1.0),
-        "MEDIUM": (1.0, 1.5),
-        "HIGH": (1.2, 2.0)
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route("/schedule", methods=["POST"])
+def schedule():
+    data = request.get_json()
+
+    # ✅ Validate input
+    if not data or "processes" not in data:
+        return jsonify({"error": "Invalid input"}), 400
+
+    processes = data["processes"]
+
+    if len(processes) == 0:
+        return jsonify({"error": "No processes provided"}), 400
+
+    results = {}
+
+    algorithms = {
+        "fcfs": fcfs,
+        "sjf": sjf,
+        "rr": rr,
+        "energy": energy_scheduler
     }
-    V, f = levels[level]
-    return round((V**2) * f * time, 4)   # cleaner output
+
+    for name, func in algorithms.items():
+
+        # ✅ Deep copy (important fix)
+        procs = copy.deepcopy(processes)
+
+        # store original burst safely
+        for p in procs:
+            p["original"] = p["burst"]
+
+        gantt, energy = func(procs)
+        tat, wt = calculate_metrics(procs)
+
+        results[name] = {
+            "gantt": gantt,
+            "energy": energy,
+            "tat": tat,
+            "wt": wt
+        }
+
+    return jsonify(results)
 
 
-def energy_scheduler(processes):
-    # ✅ Prevent modifying original data
-    processes = copy.deepcopy(processes)
-
-    time = 0
-    total_energy = 0
-    ready = []
-    gantt = []
-    i = 0
-
-    # sort by arrival time
-    processes.sort(key=lambda x: x["arrival"])
-
-    while i < len(processes) or ready:
-
-        # add arrived processes
-        while i < len(processes) and processes[i]["arrival"] <= time:
-            heapq.heappush(ready, (processes[i]["burst"], processes[i]["pid"], processes[i]))
-            i += 1
-
-        if ready:
-            _, _, p = heapq.heappop(ready)
-
-            # load-based DVFS
-            load = len(ready)
-
-            if load <= 1:
-                level = "LOW"
-                speed = 0.8
-            elif load <= 3:
-                level = "MEDIUM"
-                speed = 1.0
-            else:
-                level = "HIGH"
-                speed = 1.2
-
-            exec_time = 1
-            actual_time = exec_time / speed
-
-            start = time
-            time += actual_time
-
-            p["burst"] -= exec_time
-            energy = compute_energy(level, actual_time)
-            total_energy += energy
-
-            gantt.append({
-                "pid": p["pid"],
-                "start": round(start, 3),
-                "end": round(time, 3),
-                "level": level
-            })
-
-            if p["burst"] > 0:
-                heapq.heappush(ready, (p["burst"], p["pid"], p))
-            else:
-                p["completion"] = round(time, 3)
-
-        else:
-            # ✅ jump to next arrival (important fix)
-            if i < len(processes):
-                time = processes[i]["arrival"]
-
-    return gantt, round(total_energy, 4)
+if __name__ == "__main__":
+    app.run(debug=True)
