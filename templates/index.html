@@ -1,164 +1,212 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Scheduler</title>
-<link rel="stylesheet" href="/static/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLFQ Energy Scheduler Simulation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <div class="app-container">
+        <header class="header" style="justify-content: space-between; display: flex; align-items: center;">
+            <div class="logo">
+                <h1><span class="icon">⚡</span> MLFQ <span>Energy-Aware Scheduler</span></h1>
+            </div>
+            <div class="tab-controls">
+                <button id="tab-sim" class="btn active">Simulator</button>
+                <button id="tab-live" class="btn secondary">Switch to Live Monitor</button>
+            </div>
+        </header>
 
-<div class="container">
+        <main class="dashboard">
+            <!-- Simulation View Container -->
+            <div id="view-simulation" class="view-container active">
+                <div class="simulation-layout">
+                    <!-- Sidebar for Config -->
+                    <aside class="sidebar panel glass">
+                        <div class="panel-header">
+                            <h2>Configuration</h2>
+                        </div>
+                        <div class="panel-body">
+                            <form id="config-form">
+                                <div class="form-group">
+                                    <label>Num Queues</label>
+                                    <input type="number" id="cfg-queues" value="3" min="1" max="5">
+                                </div>
+                                <div class="form-group">
+                                    <label>Time Quanta (comma separated)</label>
+                                    <input type="text" id="cfg-quanta" value="2, 4, 8">
+                                </div>
+                                <div class="form-group">
+                                    <label>Boost Interval (ticks)</label>
+                                    <select id="cfg-boost" class="form-select glass">
+                                        <option value="20">20 (Aggressive)</option>
+                                        <option value="50" selected>50 (Balanced)</option>
+                                        <option value="100">100 (Efficient)</option>
+                                        <option value="200">200 (Extreme Eco)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="dvfs-info">
+                                    <h3>DVFS Levels (P = C·V²·f)</h3>
+                                    <ul id="dvfs-list">
+                                        <!-- Populated dynamically by JS -->
+                                    </ul>
+                                </div>
+                                <button type="submit" class="btn primary">▶ Run Simulation</button>
+                            </form>
+                            
+                            <!-- AI Chatbot Section -->
+                            <div class="ai-chatbot panel glass">
+                                <div class="panel-header chatbot-header">
+                                    <h2><span class="ai-icon">✦</span> AI <span>Assistant</span></h2>
+                                </div>
+                                <div class="panel-body chatbot-body">
+                                    <div id="chat-display" class="chat-display">
+                                        <div class="chat-message bot">Hello! Ask me anything about OS scheduling or energy efficiency.</div>
+                                    </div>
+                                    <div class="chat-input-group">
+                                        <input type="text" id="chat-input" placeholder="Type a question..." class="glass">
+                                        <button id="send-chat-btn" class="btn primary small" style="margin-top: 10px; width: 100%;">Ask AI</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </aside>
 
-<h1>Energy Efficient CPU Scheduler</h1>
+                    <!-- Main simulation area -->
+                    <div class="main-content">
+                        <!-- Tasks Table Panel -->
+                        <section class="panel glass" id="tasks-panel">
+                            <div class="panel-header flex-between">
+                                <h2>Workload Definitions</h2>
+                                <button id="add-task-btn" class="btn secondary small">+ Add Task</button>
+                            </div>
+                            <div class="table-container">
+                                <table id="tasks-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Arrival</th>
+                                            <th>Burst</th>
+                                            <th>Deadline</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tasks-tbody">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
 
-<div class="card">
-<input id="arrival" placeholder="AT">
-<input id="burst" placeholder="BT">
-<button onclick="addProcess()">Add</button>
-<button onclick="clearAll()" style="background:#ef4444;">Clear</button>
+                        <!-- Visualization Panel -->
+                        <section class="panel glass visualization-panel" id="vis-panel">
+                            <div class="panel-header">
+                                <h2>Execution Timeline</h2>
+                                <div class="legend" id="timeline-legend">
+                                    <!-- Populated by JS -->
+                                </div>
+                            </div>
+                            <div class="timeline-container" id="timeline">
+                                <div class="empty-state">Run simulation to see timeline</div>
+                            </div>
+                        </section>
+                        
+                        <!-- Results Panel -->
+                        <div class="results-grid">
+                            <div class="panel glass stats-card">
+                                <h3>Deadline Hit Rate</h3>
+                                <div class="stat-value" style="color: var(--accent-green);">
+                                    <span id="res-hitrate">0</span>
+                                    <span class="stat-unit">%</span>
+                                </div>
+                            </div>
+                            <div class="panel glass stats-card">
+                                <h3>Total Consumption</h3>
+                                <div class="stat-value">
+                                    <span id="res-energy">0.00</span>
+                                    <span class="stat-unit">Joules</span>
+                                </div>
+                            </div>
+                            <div class="panel glass stats-card">
+                                <h3>Efficiency Gain</h3>
+                                <div class="stat-value" style="color: #00bcd4;">
+                                    <span id="res-energy-saved">0.00</span>
+                                    <span class="stat-unit">Joules</span>
+                                </div>
+                            </div>
+                        </div>
 
-<table id="table">
-<tr><th>PID</th><th>AT</th><th>BT</th></tr>
-</table>
-</div>
+                        <section class="panel glass results-panel">
+                            <div class="panel-header">
+                                <h2>Task Results</h2>
+                            </div>
+                            <div class="table-container">
+                                <table id="results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Wait</th>
+                                            <th>Energy (J)</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="results-tbody">
+                                        <!-- Populated by JS -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
 
-<div class="card">
-<button onclick="run()">Run</button>
+            <!-- Live View Container -->
+            <div id="view-live" class="view-container">
+                <div class="live-header panel glass">
+                    <div class="system-info">
+                        <div class="info-item">
+                            <span class="label">Operating System</span>
+                            <span class="value" id="os-name">Detecting...</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Scheduling Algorithm</span>
+                            <span class="value accent" id="os-algorithm">Detecting...</span>
+                        </div>
+                    </div>
+                </div>
 
-<table id="comparisonTable"></table>
-<div id="ganttContainer"></div>
-</div>
-
-</div>
-
-<script>
-let processes = [];
-
-// SAFE DOM REFERENCES
-const table = document.getElementById("table");
-const comparisonTable = document.getElementById("comparisonTable");
-const ganttContainer = document.getElementById("ganttContainer");
-const arrival = document.getElementById("arrival");
-const burst = document.getElementById("burst");
-
-function clearAll() {
-    processes = [];
-
-    table.innerHTML = "<tr><th>PID</th><th>AT</th><th>BT</th></tr>";
-    comparisonTable.innerHTML = "";
-    ganttContainer.innerHTML = "";
-
-    arrival.value = "";
-    burst.value = "";
-}
-
-function addProcess() {
-    let at = parseInt(arrival.value);
-    let bt = parseInt(burst.value);
-
-    // VALIDATION
-    if (isNaN(at) || isNaN(bt)) {
-        alert("Please enter valid numbers");
-        return;
-    }
-
-    let pid = processes.length + 1;
-    processes.push({ pid, arrival: at, burst: bt });
-
-    table.innerHTML += `<tr><td>${pid}</td><td>${at}</td><td>${bt}</td></tr>`;
-
-    arrival.value = "";
-    burst.value = "";
-}
-
-async function run() {
-
-    if (processes.length === 0) {
-        alert("Add processes first");
-        return;
-    }
-
-    let res = await fetch("/schedule", {
-        method: "POST",
-        headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ processes })
-    });
-
-    let data = await res.json();
-
-    comparisonTable.innerHTML = `
-    <tr><th>Algo</th><th>Energy</th><th>TAT</th><th>WT</th></tr>`;
-
-    ganttContainer.innerHTML = "";
-
-    for (let algo in data) {
-        let r = data[algo];
-
-        comparisonTable.innerHTML += `
-        <tr>
-            <td>${algo.toUpperCase()}</td>
-            <td>${r.energy.toFixed(2)}</td>
-            <td>${r.tat.toFixed(2)}</td>
-            <td>${r.wt.toFixed(2)}</td>
-        </tr>`;
-
-        drawGantt(algo, r.gantt);
-    }
-}
-
-function drawGantt(name, gantt) {
-
-    let wrapper = document.createElement("div");
-    wrapper.className = "ganttWrapper";
-
-    let title = document.createElement("div");
-    title.className = "ganttTitle";
-    title.innerText = name.toUpperCase();
-
-    let chart = document.createElement("div");
-    chart.className = "ganttChart";
-
-    let timeline = document.createElement("div");
-    timeline.className = "timeline";
-
-    // FIX: ensure container width is valid
-    let containerWidth = ganttContainer.clientWidth || 900;
-    let totalTime = gantt[gantt.length - 1].end;
-
-    let unit = containerWidth / totalTime;
-
-    gantt.forEach(task => {
-        let block = document.createElement("div");
-        block.className = "ganttBlock";
-
-        block.style.width = ((task.end - task.start) * unit) + "px";
-
-        if (task.level) {
-            if (task.level === "LOW") block.style.background = "#4caf50";
-            else if (task.level === "MEDIUM") block.style.background = "#ff9800";
-            else block.style.background = "#f44336";
-        } else {
-            block.style.background = "#2196f3";
-        }
-
-        block.innerText = "P" + task.pid;
-        chart.appendChild(block);
-    });
-
-    // timeline
-    for (let i = 0; i <= totalTime; i++) {
-        let t = document.createElement("span");
-        t.innerText = i;
-        t.style.left = (i * unit) + "px";
-        timeline.appendChild(t);
-    }
-
-    wrapper.appendChild(title);
-    wrapper.appendChild(chart);
-    wrapper.appendChild(timeline);
-
-    ganttContainer.appendChild(wrapper);
-}
-</script>
-
+                <section class="panel glass live-processes">
+                    <div class="panel-header flex-between">
+                        <h2>Top Active Processes (Live)</h2>
+                        <span class="update-tag">Auto-updating every 5s</span>
+                    </div>
+                    <div class="table-container">
+                        <table id="process-table">
+                            <thead>
+                                <tr>
+                                    <th>PID</th>
+                                    <th>Name</th>
+                                    <th>CPU Usage</th>
+                                    <th>Est. Power Draw</th>
+                                    <th style="width: 150px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="process-tbody">
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>
