@@ -44,8 +44,8 @@ Where:
 
 1.  **Clone the Repository**
     ```bash
-    git clone https://github.com/yourusername/realosproject.git
-    cd realosproject
+    git clone https://github.com/mechapaia/energy-efficient-cpu-scheduling-algorithm.git
+    cd energy-efficient-cpu-scheduling-algorithm
     ```
 
 2.  **Create a Virtual Environment**
